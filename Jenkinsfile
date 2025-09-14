@@ -3,12 +3,12 @@ pipeline {
 
     // Parameters allow dynamic values at build time
     parameters {
-        string(name: 'GIT_REPO', defaultValue: 'https://github.com/yourusername/weather-dashboard.git', description: 'Git repository URL')
+        string(name: 'GIT_REPO', defaultValue: 'https://github.com/Vishamya/weather-dashboard.git', description: 'Git repository URL')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git branch to build')
-        string(name: 'EC2_HOST', defaultValue: 'EC2_PUBLIC_IP', description: 'Public IP of EC2 to deploy')
+        string(name: 'EC2_HOST', defaultValue: '23.22.106.217', description: 'Public IP of EC2 to deploy')
         string(name: 'IMAGE', defaultValue: 'weather-dashboard', description: 'Docker image name')
-        string(name: 'AWS_REGION', defaultValue: 'ap-southeast-1', description: 'AWS region')
-        string(name: 'AWS_ACCOUNT_ID', defaultValue: '123456789012', description: 'AWS Account ID')
+        string(name: 'AWS_REGION', defaultValue: 'us-east-1', description: 'AWS region')
+        string(name: 'AWS_ACCOUNT_ID', defaultValue: '514015377403', description: 'AWS Account ID')
     }
 
     environment {
@@ -19,7 +19,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: "${params.GIT_BRANCH}", url: "${params.GIT_REPO}", credentialsId: 'github-creds'
+                git branch: "${params.GIT_BRANCH}", url: "${params.GIT_REPO}", credentialsId: 'github-access'
             }
         }
 
@@ -37,7 +37,7 @@ pipeline {
 
         stage('AWS Login & Push Docker Image') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS Credentials']]) {
                     sh """
                         aws ecr get-login-password --region ${params.AWS_REGION} | \
                         docker login --username AWS --password-stdin ${params.AWS_ACCOUNT_I
