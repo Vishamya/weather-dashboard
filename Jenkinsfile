@@ -35,9 +35,41 @@ pipeline {
             }
         }
 
+
         stage('AWS Login & Push Docker Image') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS Credentials']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                     sh """
                         aws ecr get-login-password --region ${params.AWS_REGION} | \
-                        docker login --username AWS --password-stdin ${params.AWS_ACCOUNT_I
+                        docker login --username AWS --password-stdin ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com
+
+                        docker tag ${params.IMAGE}:${TAG} ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.IMAGE}:${TAG}
+                        docker push ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.IMAGE}:${TAG}
+
+                        docker tag ${params.IMAGE}:${TAG} ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.IMAGE}:latest
+                        docker push ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY'),
+                    string(credentialsId: 'OPENWEATHER_API_KEY', variable: 'API_KEY')
+                ]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY ${EC2_USER}@${params.EC2_HOST} '
+                          echo "OPENWEATHER_API_KEY=${API_KEY}" > /home/${EC2_USER}/.env &&
+                          docker pull ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.IMAGE}:latest || true &&
+                          docker stop weather-demo || true &&
+                          docker rm weather-demo || true &&
+                          docker run -d --name weather-demo --env-file /home/${EC2_USER}/.env -p 80:8080 ${params.AWS_ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/${params.IMAGE}:latest
+                        '
+                    """
+                }
+            }
+        }
+    }
+}
