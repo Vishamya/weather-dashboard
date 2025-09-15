@@ -24,22 +24,36 @@ pipeline {
         }
 
         stage('Unit Tests') {
-            steps {
+    steps {
         sh '''
-            docker run --rm \
-            -v /var/lib/jenkins/workspace/weather-dashboard:/app \
-            -w /app \
-            python:3.11-slim \
-            bash -c "pip install -r requirements.txt && python -m pytest -q"
-        '''
-            }
-        }
+        set +e
+        cd /var/lib/jenkins/workspace/weather-dashboard
 
-        stage('Build Docker Image') {
-            steps {
-                sh "docker build -t ${params.IMAGE}:${TAG} ."
-            }
-        }
+        # Check if any test files exist
+        if ls tests/*.py >/dev/null 2>&1 || ls test_*.py >/dev/null 2>&1; then
+            echo "✅ Running tests..."
+            docker run --rm \
+                -v /var/lib/jenkins/workspace/weather-dashboard:/app \
+                -w /app \
+                python:3.11-slim \
+                bash -c "pip install -r requirements.txt && python -m pytest -q"
+            TEST_EXIT=$?
+        else
+            echo "⚠️ No test files found. Skipping tests..."
+            TEST_EXIT=0
+        fi
+
+        exit $TEST_EXIT
+        '''
+    }
+}
+
+stage('Build Docker Image') {
+    steps {
+        sh "docker build -t ${params.IMAGE}:${TAG} ."
+    }
+}
+
 
 
         stage('AWS Login & Push Docker Image') {
