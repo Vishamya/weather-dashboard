@@ -25,7 +25,13 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
-                sh 'docker run --rm -v $WORKSPACE:/app -w /app python:3.11-slim bash -c "pip install -r requirements.txt && pytest -q"'
+        sh '''
+            docker run --rm \
+            -v /var/lib/jenkins/workspace/weather-dashboard:/app \
+            -w /app \
+            python:3.11-slim \
+            bash -c "pip install -r requirements.txt && python -m pytest -q"
+        '''
             }
         }
 
